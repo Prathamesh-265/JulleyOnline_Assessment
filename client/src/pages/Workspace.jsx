@@ -7,7 +7,9 @@ import BoardsNav from "../components/board/BoardsNav";
 import TaskPanel from "../components/board/TaskPanel";
 import EmptyWorkspace from "../components/layout/EmptyWorkspace";
 import Navbar from "../components/layout/Navbar";
+import SettingsPanel from "../components/layout/SettingsPanel";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
+import PromptDialog from "../components/ui/PromptDialog";
 import Loader, { BoardSkeleton } from "../components/ui/Loader";
 import Toast from "../components/ui/Toast";
 import { useAuth } from "../context/AuthContext";
@@ -25,6 +27,7 @@ export default function Workspace() {
   const [panel, setPanel] = useState(null); // 'activity' | 'members' | null
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [dialog, setDialog] = useState(null); // { kind: 'renameBoard' | 'renameColumn' | 'deleteColumn', column? }
 
   const activity = useActivity(ws.tenant?.id);
   const board = useBoard(ws.boardId, {
@@ -85,6 +88,32 @@ export default function Workspace() {
     } finally {
       setDeleting(false);
       setConfirmDelete(false);
+    }
+  };
+
+  const renameBoard = async (name) => {
+    await api.put(`/boards/${ws.boardId}`, { name });
+    await ws.reloadBoards();
+    await board.load();
+    setDialog(null);
+  };
+
+  const renameColumn = async (column, name) => {
+    await api.put(`/columns/${column.id}`, { name });
+    await board.load();
+    setDialog(null);
+  };
+
+  const removeColumn = async (column) => {
+    setDeleting(true);
+    try {
+      await api.del(`/columns/${column.id}`);
+      await board.load();
+    } catch (e) {
+      setNotice(e.message); // e.g. the column still has tasks
+    } finally {
+      setDeleting(false);
+      setDialog(null);
     }
   };
 
@@ -157,6 +186,14 @@ export default function Workspace() {
                   </button>
                   {ws.isAdmin && (
                     <button
+                      className="btn ghost small"
+                      onClick={() => setDialog({ kind: "renameBoard" })}
+                    >
+                      Rename
+                    </button>
+                  )}
+                  {ws.isAdmin && (
+                    <button
                       className="btn ghost small danger-text"
                       onClick={() => setConfirmDelete(true)}
                     >
@@ -170,6 +207,12 @@ export default function Workspace() {
                 isAdmin={ws.isAdmin}
                 onOpen={setSelectedId}
                 actions={board}
+                onRenameColumn={(column) =>
+                  setDialog({ kind: "renameColumn", column })
+                }
+                onDeleteColumn={(column) =>
+                  setDialog({ kind: "deleteColumn", column })
+                }
               />
             </>
           )}
@@ -211,6 +254,42 @@ export default function Workspace() {
       )}
       {panel === "members" && ws.tenant && (
         <MembersPanel onClose={() => setPanel(null)} />
+      )}
+      {panel === "settings" && ws.org && (
+        <SettingsPanel onClose={() => setPanel(null)} />
+      )}
+
+      {dialog?.kind === "renameBoard" && board.board && (
+        <PromptDialog
+          title="Rename board"
+          label="Board name"
+          initial={board.board.name}
+          onSubmit={renameBoard}
+          onCancel={() => setDialog(null)}
+        />
+      )}
+      {dialog?.kind === "renameColumn" && (
+        <PromptDialog
+          title="Rename column"
+          label="Column name"
+          initial={dialog.column.name}
+          onSubmit={(name) => renameColumn(dialog.column, name)}
+          onCancel={() => setDialog(null)}
+        />
+      )}
+      {dialog?.kind === "deleteColumn" && (
+        <ConfirmDialog
+          title="Delete this column?"
+          message={
+            dialog.column.tasks.length
+              ? `"${dialog.column.name}" still has ${dialog.column.tasks.length} task(s). Move or delete them first.`
+              : `"${dialog.column.name}" will be removed from this board.`
+          }
+          confirmLabel="Delete column"
+          busy={deleting}
+          onConfirm={() => removeColumn(dialog.column)}
+          onCancel={() => setDialog(null)}
+        />
       )}
 
       {confirmDelete && board.board && (

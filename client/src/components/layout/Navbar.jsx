@@ -1,18 +1,18 @@
-import { Link } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import { useWorkspace } from '../../context/WorkspaceContext';
-import PresenceIndicator from '../collab/PresenceIndicator';
-import Avatar from '../ui/Avatar';
-import { OrgSelector, TenantSwitcher } from './Selectors';
+import { Link } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
+import { useWorkspace } from "../../context/WorkspaceContext";
+import PresenceIndicator from "../collab/PresenceIndicator";
+import Avatar from "../ui/Avatar";
+import { OrgSelector, TenantSwitcher } from "./Selectors";
 
 export default function Navbar({ users, onPanel, onError }) {
   const { user, logout } = useAuth();
-  const { orgs, org } = useWorkspace();
+  const { orgs, org, isAdmin } = useWorkspace();
 
   return (
     <header className="navbar">
       <Link to="/" className="logo">
-         Syncboard
+        Syncboard
       </Link>
 
       {org && (
@@ -25,8 +25,19 @@ export default function Navbar({ users, onPanel, onError }) {
       <div className="nav-right">
         {orgs?.length > 0 && <PresenceIndicator users={users} />}
         {org && (
-          <button className="btn ghost small" onClick={() => onPanel('members')}>
+          <button
+            className="btn ghost small"
+            onClick={() => onPanel("members")}
+          >
             Members
+          </button>
+        )}
+        {org && (org.isOrgAdmin || isAdmin) && (
+          <button
+            className="btn ghost small"
+            onClick={() => onPanel("settings")}
+          >
+            Settings
           </button>
         )}
         <Avatar user={user} size={32} />
