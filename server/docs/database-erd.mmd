@@ -1,0 +1,83 @@
+erDiagram
+    organizations ||--o{ tenants : "has branches"
+    organizations ||--o{ memberships : "has"
+    tenants |o--o{ memberships : "scopes (NULL = org-level)"
+    users ||--o{ memberships : "holds"
+    tenants ||--o{ boards : "owns"
+    boards ||--o{ columns : "has"
+    columns ||--o{ tasks : "holds"
+    boards ||--o{ tasks : "contains"
+    tenants ||--o{ activity_logs : "records"
+    users ||--o{ activity_logs : "performs"
+    users |o--o{ tasks : "assigned_to"
+
+    organizations {
+        uuid id PK
+        varchar name
+        timestamp created_at
+        timestamp updated_at
+    }
+    tenants {
+        uuid id PK
+        uuid organization_id FK
+        varchar name
+        timestamp created_at
+    }
+    users {
+        uuid id PK
+        varchar name
+        varchar email UK
+        text password_hash
+        timestamp created_at
+    }
+    memberships {
+        uuid id PK
+        uuid user_id FK
+        uuid organization_id FK
+        uuid tenant_id FK "NULL = org-level, must match org"
+        enum role "ORG_ADMIN, TENANT_ADMIN, MEMBER"
+        timestamp created_at
+    }
+    boards {
+        uuid id PK
+        uuid organization_id FK "must match tenant's org"
+        uuid tenant_id FK "TENANT KEY"
+        varchar name
+        text description
+        uuid created_by FK
+        timestamp created_at
+        timestamp updated_at
+    }
+    columns {
+        uuid id PK
+        uuid board_id FK
+        uuid tenant_id FK "TENANT KEY, must match board"
+        varchar name
+        float position
+    }
+    tasks {
+        uuid id PK
+        uuid board_id FK
+        uuid column_id FK "must be on same board"
+        uuid tenant_id FK "TENANT KEY, must match board"
+        varchar title
+        text description
+        uuid assigned_to FK
+        uuid created_by FK
+        enum priority
+        timestamp due_date
+        float position "fractional ordering"
+        int version "optimistic lock"
+        timestamp created_at
+        timestamp updated_at
+    }
+    activity_logs {
+        uuid id PK
+        uuid tenant_id FK "TENANT KEY"
+        uuid user_id FK
+        varchar entity_type
+        uuid entity_id
+        varchar action
+        jsonb details
+        timestamp created_at
+    }
